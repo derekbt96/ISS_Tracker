@@ -8,7 +8,7 @@ import numpy as np
 now = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
 
 for i in range(30):
-    if 1:
+    try:
         url = "http://api.open-notify.org/iss-now.json"
         response = urllib.request.urlopen(url)
         result = json.loads(response.read())
@@ -18,13 +18,10 @@ for i in range(30):
         latstr = location['latitude']
         lonstr = location['longitude']
         timestamp = result['timestamp']
-    else:
-        latstr = '12.34'
-        lonstr = '56.78'
-        timestamp = 000
+    except:
+        pass
 
-    # Output lon and lat to the terminal in the 
-    # float format
+
     lat = float(latstr)
     lon = float(lonstr)
     print("Latitude: " + str(lat))

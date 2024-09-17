@@ -8,9 +8,8 @@ class orbitTracker():
     GM = 398602544600000.0
     
     def __init__(self,lat=0,lon=0,vNeg = False):
-        alt = (6375 + 432) * 1000 # m
+        self.alt = (6375 + 432) * 1000.0 # m
         self.inclination = 51.6 * np.pi/180.0
-        self.r = alt * 1000
         # v = np.sqrt(GM/r)
         self.speed = 7652.303002166208
         # T = 2*np.pi*np.sqrt((r**3)/(GM))
@@ -20,7 +19,8 @@ class orbitTracker():
         
         self.lat = lat
         self.lon = lon
-        self.v = self.speed*np.array([np.cos(self.inclination),0,np.sin(self.inclination)])
+        self.x = self.alt*np.array([1,0,0])
+        self.v = self.speed*np.array([0,np.cos(self.inclination),np.sin(self.inclination)])
         if vNeg:
             self.v[2] = -self.v[2]
 
@@ -46,86 +46,82 @@ class orbitTracker():
         q_conj = [q[0],-1*q[1],-1*q[2],-1*q[3]]
         return self.quaternion_mult(self.quaternion_mult(q,r),q_conj)
 
-    def toLatLon(self,v):
-        lat = np.arcsin(v[2])*180.0/np.pi
-        lon = np.arctan2(v[1],v[0])*180.0/np.pi
-        return [lat,lon]
+    def updateLatLon(self):
+        self.lat = np.arcsin(self.x[2]/self.alt)*180.0/np.pi
+        self.lon = np.arctan2(self.x[1],self.x[0])*180.0/np.pi
+        if self.lon > 180:
+            self.lon -= 360
+        elif self.lon < -180:
+            self.lon += 360
 
     def propagate(self,tim):
 
-        rot = np.arcsin(max(-1,min(1, (np.pi/180.0)*self.lat/self.inclination )))
-        # print("rot: ",rot)
-
-
         theta_prop = 2*np.pi*tim/self.T
-        if self.v[2] > 0: 
-            v_rot = np.array([np.sin(-rot),
-                            np.cos(-rot)*-np.sin(self.inclination),
-                            np.cos(self.inclination)])
-        else:
-            v_rot = np.array([np.sin(-rot),
-                            -np.cos(-rot)*-np.sin(self.inclination),
-                            np.cos(self.inclination)])
-        # print("v_rot: ",v_rot)
+
+        v_rot = np.cross(self.x,self.v)
+        v_rot = v_rot/np.linalg.norm(v_rot)
         
         q_rot = np.array([np.cos(theta_prop/2),
                         np.sin(theta_prop/2)*v_rot[0],
                         np.sin(theta_prop/2)*v_rot[1],
                         np.sin(theta_prop/2)*v_rot[2]])
-       
-        pos = np.array([0,
-                        np.cos((np.pi/180.0)*self.lat),
-                        0,
-                        np.sin((np.pi/180.0)*self.lat)])
-        pos_rotated = self.point_rotation_by_quaternion(pos, q_rot)[1:]
-        # print(pos_rotated)
-
-        vel = np.append(0,np.cross(v_rot,pos[1:]))
-        vel = vel*np.linalg.norm(vel)*self.speed
-        self.v = self.point_rotation_by_quaternion(vel, q_rot)[1:]
-        # print(self.v)
-
-        location_new = self.toLatLon(pos_rotated)
         
-        location_new[1] += self.lon
+        pos = np.append(0,self.x)
+        pos = self.point_rotation_by_quaternion(pos, q_rot)[1:]
 
-        location_new[1] -= 360*tim/86400
+        vel = np.append(0,self.v)
+        vel = self.point_rotation_by_quaternion(vel, q_rot)[1:]
 
-        if location_new[1] > 180:
-            location_new[1] -= 360
-        elif location_new[1] < -180:
-            location_new[1] += 360
+        theta_day = 2*np.pi*tim/86400
 
-        self.lat = location_new[0]
-        self.lon = location_new[1]
+        rot_lon = np.array([[np.cos(theta_day),-np.sin(theta_day),0],
+                            [np.sin(theta_day),np.cos(theta_day),0],
+                            [0,0,1]])
+        
+        self.x = np.matmul(rot_lon,pos)
+        self.v = np.matmul(rot_lon,vel)
+
+        self.updateLatLon()
         self.timestamp += tim
 
 
-ISS = orbitTracker()
-ISS.calibrate(7.9938,64.4501,1726524904,False)
+
+ISS = orbitTracker(vNeg = True)
+
+log_file = 'ISS_Tracker/iss_positions_2hour.txt'
+dat = np.genfromtxt(log_file,delimiter=',')
+plt.plot(dat[:,4], dat[:,3],'r')
+plt.scatter(dat[:,4], dat[:,3])
+
+log_file = 'ISS_Tracker/iss_positions_1hour.txt'
+dat = np.genfromtxt(log_file,delimiter=',')
+plt.plot(dat[:,4], dat[:,3],'r')
+plt.scatter(dat[:,4], dat[:,3])
+
+log_file = 'ISS_Tracker/iss_positions.txt'
+dat = np.genfromtxt(log_file,delimiter=',')
+plt.plot(dat[:,4], dat[:,3],'r')
+plt.scatter(dat[:,4], dat[:,3])
+
+# ISS.calibrate(lat_record[0],lon_record[0],dat[0,2],True)
 
 lat_data = np.array([ISS.lat])
 lon_data = np.array([ISS.lon])
 tim_data = np.array([ISS.timestamp])
+x_data = np.array(ISS.x[0])
 
-for k in range(6):
-    ISS.propagate(600)
+for k in range(446*2):
+    ISS.propagate(100)
     lat_data = np.append(lat_data,ISS.lat)
     lon_data = np.append(lon_data,ISS.lon)
     tim_data = np.append(tim_data,ISS.timestamp)
-    
-
-log_file = 'ISS_Tracker/iss_positions_1hour.txt'
-dat = np.genfromtxt(log_file,delimiter=',')
-lat_record = dat[:,3]
-lon_record = dat[:,4]
-
-plt.plot(lon_record, lat_record)
-plt.scatter(lon_record, lat_record)
+    x_data = np.append(x_data,ISS.x[0])
 
 
-plt.plot(lon_data, lat_data)
-plt.scatter(lon_data, lat_data)
+
+
+plt.plot(lon_data, lat_data,'b')
+# plt.scatter(lon_data, lat_data,'b')
 
 plt.title('Data Set 1')
 plt.xlabel('Time')
