@@ -72,7 +72,7 @@ class orbitTracker():
         vel = np.append(0,self.v)
         vel = self.point_rotation_by_quaternion(vel, q_rot)[1:]
 
-        theta_day = 2*np.pi*tim/86400
+        theta_day = -2*np.pi*tim/86400
 
         rot_lon = np.array([[np.cos(theta_day),-np.sin(theta_day),0],
                             [np.sin(theta_day),np.cos(theta_day),0],
@@ -88,20 +88,25 @@ class orbitTracker():
 
 ISS = orbitTracker(vNeg = True)
 
+# log_file = 'ISS_Tracker/iss_positions_3.txt'
+# dat = np.genfromtxt(log_file,delimiter=',')
+# plt.plot(dat[:,4], dat[:,3],'r')
+# plt.scatter(dat[:,4], dat[:,3])
+
 log_file = 'ISS_Tracker/iss_positions_2hour.txt'
 dat = np.genfromtxt(log_file,delimiter=',')
 plt.plot(dat[:,4], dat[:,3],'r')
 plt.scatter(dat[:,4], dat[:,3])
 
-log_file = 'ISS_Tracker/iss_positions_1hour.txt'
-dat = np.genfromtxt(log_file,delimiter=',')
-plt.plot(dat[:,4], dat[:,3],'r')
-plt.scatter(dat[:,4], dat[:,3])
+# log_file = 'ISS_Tracker/iss_positions_1hour.txt'
+# dat = np.genfromtxt(log_file,delimiter=',')
+# plt.plot(dat[:,4], dat[:,3],'r')
+# plt.scatter(dat[:,4], dat[:,3])
 
-log_file = 'ISS_Tracker/iss_positions.txt'
-dat = np.genfromtxt(log_file,delimiter=',')
-plt.plot(dat[:,4], dat[:,3],'r')
-plt.scatter(dat[:,4], dat[:,3])
+# log_file = 'ISS_Tracker/iss_positions.txt'
+# dat = np.genfromtxt(log_file,delimiter=',')
+# plt.plot(dat[:,4], dat[:,3],'r')
+# plt.scatter(dat[:,4], dat[:,3])
 
 # ISS.calibrate(lat_record[0],lon_record[0],dat[0,2],True)
 
@@ -111,6 +116,7 @@ tim_data = np.array([ISS.timestamp])
 x_data = np.array(ISS.x[0])
 
 for k in range(446*2):
+# for k in range(50):
     ISS.propagate(100)
     lat_data = np.append(lat_data,ISS.lat)
     lon_data = np.append(lon_data,ISS.lon)
